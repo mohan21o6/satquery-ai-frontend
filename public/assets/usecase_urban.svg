@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="600" height="450">
+  <defs>
+    <linearGradient id="urbanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="450" fill="url(#urbanGrad)"/>
+  
+  <!-- Coastal water edge -->
+  <path d="M450,0 Q430,200 490,450 L600,450 L600,0 Z" fill="#0369a1" opacity="0.8"/>
+
+  <!-- Dense high-rise building footprints with shadows -->
+  <g fill="#475569" stroke="#334155" stroke-width="1">
+    <!-- Sector 1 -->
+    <rect x="40" y="40" width="45" height="35" fill="#64748b"/>
+    <rect x="43" y="43" width="45" height="35" fill="#0f172a" opacity="0.4"/>
+    <rect x="95" y="40" width="60" height="35" fill="#94a3b8"/>
+    <rect x="165" y="40" width="40" height="35" fill="#64748b"/>
+    <rect x="215" y="40" width="55" height="35" fill="#cbd5e1"/>
+    
+    <rect x="40" y="90" width="70" height="40" fill="#64748b"/>
+    <rect x="120" y="90" width="45" height="40" fill="#cbd5e1"/>
+    <rect x="175" y="90" width="65" height="40" fill="#94a3b8"/>
+
+    <!-- Sector 2 Skyscrapers -->
+    <rect x="40" y="160" width="80" height="60" fill="#e2e8f0"/>
+    <rect x="130" y="160" width="90" height="50" fill="#94a3b8"/>
+    <rect x="230" y="160" width="70" height="60" fill="#cbd5e1"/>
+    <rect x="310" y="150" width="80" height="70" fill="#f8fafc"/>
+
+    <rect x="40" y="240" width="55" height="70" fill="#64748b"/>
+    <rect x="105" y="240" width="75" height="60" fill="#94a3b8"/>
+    <rect x="190" y="230" width="100" height="80" fill="#e2e8f0"/>
+    <rect x="300" y="240" width="90" height="70" fill="#cbd5e1"/>
+
+    <!-- Port containers -->
+    <rect x="410" y="120" width="25" height="60" fill="#38bdf8" opacity="0.8"/>
+    <rect x="410" y="200" width="30" height="70" fill="#f97316" opacity="0.8"/>
+    <rect x="410" y="290" width="28" height="80" fill="#eab308" opacity="0.8"/>
+  </g>
+
+  <!-- Highway arteries (cyan/yellow night illumination) -->
+  <line x1="0" y1="145" x2="450" y2="145" stroke="#38bdf8" stroke-width="4" opacity="0.8"/>
+  <line x1="280" y1="0" x2="280" y2="450" stroke="#00e5ff" stroke-width="4" opacity="0.8"/>
+  <line x1="0" y1="330" x2="470" y2="330" stroke="#38bdf8" stroke-width="3" opacity="0.7"/>
+  <circle cx="280" cy="145" r="25" fill="none" stroke="#00e5ff" stroke-width="3"/>
+
+  <!-- Subtle zoning overlays -->
+  <polygon points="180,220 300,220 300,320 180,320" fill="#00e5ff" fill-opacity="0.12" stroke="#00e5ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+</svg>

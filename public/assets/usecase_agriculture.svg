@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="600" height="450">
+  <defs>
+    <filter id="agNoise" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise"/>
+      <feColorMatrix type="matrix" values="
+        0.2 0.8 0.1 0 0
+        0.4 0.6 0.1 0 0
+        0.1 0.3 0.1 0 0
+        0   0   0   0.4 0" in="noise" result="colored"/>
+      <feBlend in="SourceGraphic" in2="colored" mode="multiply"/>
+    </filter>
+    <linearGradient id="agSky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#022c22" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#052e16" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="450" fill="#143e22"/>
+  
+  <!-- Farmland Grid and Parcels -->
+  <g opacity="0.9">
+    <!-- Various crop field polygons -->
+    <polygon points="0,0 180,0 200,160 0,140" fill="#15803d"/>
+    <polygon points="180,0 360,0 380,180 200,160" fill="#166534"/>
+    <polygon points="360,0 600,0 600,150 380,180" fill="#14532d"/>
+    
+    <polygon points="0,140 200,160 170,300 0,280" fill="#4d7c0f"/>
+    <polygon points="200,160 380,180 350,330 170,300" fill="#16a34a"/>
+    <polygon points="380,180 600,150 600,320 350,330" fill="#22c55e" fill-opacity="0.75"/>
+    
+    <polygon points="0,280 170,300 190,450 0,450" fill="#15803d"/>
+    <polygon points="170,300 350,330 370,450 190,450" fill="#3f6212"/>
+    <polygon points="350,330 600,320 600,450 370,450" fill="#14532d"/>
+
+    <!-- Circular Pivot Irrigation fields -->
+    <circle cx="100" cy="70" r="55" fill="#22c55e" fill-opacity="0.7"/>
+    <circle cx="100" cy="70" r="50" fill="none" stroke="#15803d" stroke-width="4" stroke-dasharray="8 4"/>
+    <circle cx="290" cy="80" r="65" fill="#84cc16" fill-opacity="0.6"/>
+    <circle cx="490" cy="75" r="60" fill="#15803d" fill-opacity="0.8"/>
+
+    <circle cx="260" cy="245" r="70" fill="#4ade80" fill-opacity="0.5"/>
+    <circle cx="480" cy="235" r="68" fill="#16a34a" fill-opacity="0.7"/>
+    <circle cx="85" cy="380" r="60" fill="#65a30d" fill-opacity="0.6"/>
+    <circle cx="280" cy="390" r="55" fill="#15803d" fill-opacity="0.75"/>
+    <circle cx="490" cy="390" r="65" fill="#22c55e" fill-opacity="0.6"/>
+
+    <!-- Farm tracks & irrigation canals -->
+    <line x1="0" y1="140" x2="600" y2="150" stroke="#713f12" stroke-width="3" opacity="0.6"/>
+    <line x1="0" y1="280" x2="600" y2="320" stroke="#0ea5e9" stroke-width="3" opacity="0.7"/>
+    <line x1="180" y1="0" x2="190" y2="450" stroke="#713f12" stroke-width="3" opacity="0.6"/>
+    <line x1="370" y1="0" x2="360" y2="450" stroke="#0284c7" stroke-width="4" opacity="0.7"/>
+  </g>
+
+  <!-- High-altitude atmosphere haze & vignette -->
+  <rect width="600" height="450" fill="url(#agSky)"/>
+  <rect width="600" height="450" fill="none" stroke="#00e5ff" stroke-width="1" opacity="0.1"/>
+</svg>

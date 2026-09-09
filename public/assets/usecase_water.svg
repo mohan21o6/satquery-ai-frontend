@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="600" height="450">
+  <defs>
+    <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="40%" stop-color="#0369a1"/>
+      <stop offset="80%" stop-color="#0c4a6e"/>
+      <stop offset="100%" stop-color="#082f49"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="450" fill="url(#oceanGrad)"/>
+
+  <!-- Sandbanks, atoll reefs and barrier islands -->
+  <path d="M50,120 Q180,90 280,190 T520,160" fill="none" stroke="#38bdf8" stroke-width="70" stroke-linecap="round" opacity="0.4"/>
+  <path d="M50,120 Q180,90 280,190 T520,160" fill="none" stroke="#a5f3fc" stroke-width="35" stroke-linecap="round" opacity="0.5"/>
+  <path d="M70,125 Q180,95 280,195 T500,165" fill="none" stroke="#fef08a" stroke-width="12" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Lake and reservoir contour lines -->
+  <ellipse cx="200" cy="320" rx="140" ry="70" fill="#0284c7" opacity="0.6"/>
+  <ellipse cx="200" cy="320" rx="100" ry="50" fill="#0369a1" opacity="0.8"/>
+  <ellipse cx="200" cy="320" rx="60" ry="30" fill="#082f49"/>
+
+  <!-- Turbidity / depth telemetry lines -->
+  <circle cx="200" cy="320" r="8" fill="#00e5ff"/>
+  <line x1="200" y1="320" x2="280" y2="280" stroke="#00e5ff" stroke-width="1.5"/>
+  <rect x="280" y="270" width="95" height="24" rx="4" fill="#040914" fill-opacity="0.8" stroke="#00e5ff" stroke-width="1"/>
+  <text x="288" y="286" fill="#38bdf8" font-family="monospace" font-size="11">DEPTH: 42.8m</text>
+</svg>
