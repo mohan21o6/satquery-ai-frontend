@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 
 interface EarthBackgroundProps {
-  scrollY: number;
+  scrollY?: number;
 }
 
-export const EarthBackground: React.FC<EarthBackgroundProps> = ({ scrollY }) => {
+export const EarthBackground: React.FC<EarthBackgroundProps> = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Twinkling stars canvas in background
+  // 1. Background stars canvas fallback / ambient space dust
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -25,14 +26,13 @@ export const EarthBackground: React.FC<EarthBackgroundProps> = ({ scrollY }) => 
     };
     window.addEventListener('resize', handleResize);
 
-    // Generate static stars
-    const starCount = 240;
+    const starCount = 180;
     const stars = Array.from({ length: starCount }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      size: Math.random() * 1.5 + 0.4,
+      size: Math.random() * 1.4 + 0.4,
       alpha: Math.random() * 0.7 + 0.3,
-      speed: Math.random() * 0.015 + 0.005,
+      speed: Math.random() * 0.012 + 0.004,
       phase: Math.random() * Math.PI * 2,
     }));
 
@@ -41,22 +41,6 @@ export const EarthBackground: React.FC<EarthBackgroundProps> = ({ scrollY }) => 
       time += 0.02;
       ctx.clearRect(0, 0, width, height);
 
-      // Draw faint space nebula dust
-      const nebulaGrad = ctx.createRadialGradient(
-        width * 0.65,
-        height * 0.25,
-        50,
-        width * 0.65,
-        height * 0.25,
-        width * 0.6
-      );
-      nebulaGrad.addColorStop(0, 'rgba(14, 116, 144, 0.04)');
-      nebulaGrad.addColorStop(0.5, 'rgba(3, 105, 161, 0.02)');
-      nebulaGrad.addColorStop(1, 'rgba(3, 7, 18, 0)');
-      ctx.fillStyle = nebulaGrad;
-      ctx.fillRect(0, 0, width, height);
-
-      // Draw stars
       for (let i = 0; i < stars.length; i++) {
         const star = stars[i];
         const twinkle = Math.sin(time * star.speed * 60 + star.phase);
@@ -79,168 +63,126 @@ export const EarthBackground: React.FC<EarthBackgroundProps> = ({ scrollY }) => 
     };
   }, []);
 
-  // Parallax calculations for continuous Earth journey
-  const heroEarthParallax = Math.min(scrollY * 0.35, 300);
-  const midEarthParallax = (scrollY - 1800) * 0.18;
-  const lowerEarthParallax = (scrollY - 3600) * 0.15;
+  // 2. Scroll-driven cinematic video timeline engine
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Keep video paused — playback is driven exclusively by scroll position
+    video.pause();
+
+    let animId: number;
+    let currentRenderTime = -1;
+
+    const tick = () => {
+      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      const totalHeight = document.documentElement.scrollHeight || document.body.scrollHeight || 1;
+      const viewHeight = window.innerHeight || 1;
+      const maxScroll = Math.max(1, totalHeight - viewHeight);
+
+      const progress = Math.min(1, Math.max(0, scrollY / maxScroll));
+      const duration = video.duration;
+
+      if (duration && !isNaN(duration) && duration > 0) {
+        // Prevent browser 'ended' event while hitting exact final frame at bottom
+        const maxTime = Math.max(0, duration - 0.01);
+        const targetTime = progress >= 0.999 ? maxTime : progress * maxTime;
+
+        if (currentRenderTime < 0) {
+          currentRenderTime = targetTime;
+        } else {
+          const diff = targetTime - currentRenderTime;
+          if (Math.abs(diff) < 0.0005) {
+            currentRenderTime = targetTime;
+          } else {
+            // Responsive lerp coefficient (0.22 provides immediate tracking + smooth motion)
+            currentRenderTime += diff * 0.22;
+          }
+        }
+
+        // Direct assignment to video element
+        if (Math.abs(video.currentTime - currentRenderTime) > 0.0001) {
+          video.currentTime = currentRenderTime;
+        }
+      }
+
+      animId = requestAnimationFrame(tick);
+    };
+
+    const onLoadedMetadata = () => {
+      video.pause();
+    };
+
+    video.addEventListener('loadedmetadata', onLoadedMetadata);
+    video.addEventListener('play', () => { video.pause(); });
+
+    animId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      video.removeEventListener('loadedmetadata', onLoadedMetadata);
+    };
+  }, []);
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
-      {/* 1. Starfield Canvas */}
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden', pointerEvents: 'none' }}
+      aria-hidden="true"
+    >
+      {/* Starfield canvas */}
       <canvas
         ref={canvasRef}
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
+          inset: 0,
           width: '100%',
           height: '100%',
-          opacity: 0.85,
+          opacity: 0.65,
         }}
       />
 
-      {/* 2. Primary Hero Earth Curvature (Visible at top, curves through Hero & Capabilities) */}
-      <div
+      {/* Cinematic scroll-driven background video — lv_0_20260909234819.mp4 */}
+      <video
+        ref={videoRef}
+        src="/assets/lv_0_20260909234819.mp4"
+        preload="auto"
+        muted
+        playsInline
         style={{
           position: 'absolute',
-          top: '38vh',
-          left: '50%',
-          transform: `translateX(-50%) translateY(${-heroEarthParallax}px)`,
-          width: '150vw',
-          maxWidth: '2200px',
-          height: '1100px',
-          opacity: Math.max(0, 1 - scrollY / 1500),
-          transition: 'transform 0.1s ease-out, opacity 0.2s ease-out',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center center',
           pointerEvents: 'none',
         }}
-      >
-        {/* Glow halo behind Earth */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '0%',
-            left: '10%',
-            right: '10%',
-            height: '240px',
-            background: 'radial-gradient(ellipse at 50% 30%, rgba(0, 229, 255, 0.45) 0%, rgba(2, 132, 199, 0.25) 45%, rgba(3, 7, 18, 0) 75%)',
-            filter: 'blur(35px)',
-            pointerEvents: 'none',
-          }}
-        />
+      />
 
-        {/* Earth image with cinematic curvature */}
-        <img
-          src="/assets/hero_earth.jpg"
-          alt="Earth curvature from orbit"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center 18%',
-            borderRadius: '50% 50% 0 0 / 22% 22% 0 0',
-            boxShadow: '0 -15px 60px rgba(0, 229, 255, 0.35)',
-            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.95) 55%, rgba(0,0,0,0.4) 85%, rgba(0,0,0,0) 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.95) 55%, rgba(0,0,0,0.4) 85%, rgba(0,0,0,0) 100%)',
-          }}
-        />
-      </div>
-
-      {/* 3. Mid-Page Secondary Earth Horizon (Glides into view for Example Analysis & Supported Inputs) */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '42vh',
-          left: '50%',
-          transform: `translateX(-50%) translateY(${midEarthParallax}px)`,
-          width: '160vw',
-          maxWidth: '2400px',
-          height: '1000px',
-          opacity: scrollY > 1200 && scrollY < 3200 ? Math.min(0.75, (scrollY - 1200) / 400) * Math.max(0, 1 - (scrollY - 2600) / 600) : 0,
-          transition: 'transform 0.1s ease-out, opacity 0.3s ease-out',
-          pointerEvents: 'none',
-        }}
-      >
-        {/* Atmospheric rim halo */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '-20px',
-            left: '15%',
-            right: '15%',
-            height: '220px',
-            background: 'radial-gradient(ellipse at 50% 40%, rgba(56, 189, 248, 0.35) 0%, rgba(2, 132, 199, 0.18) 50%, transparent 75%)',
-            filter: 'blur(40px)',
-          }}
-        />
-        <img
-          src="/assets/hero_earth.jpg"
-          alt="Earth atmospheric horizon"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center 45%',
-            borderRadius: '50% 50% 0 0 / 18% 18% 0 0',
-            opacity: 0.85,
-            filter: 'hue-rotate(-10deg) brightness(0.9)',
-            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 45%, rgba(0,0,0,0) 90%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 45%, rgba(0,0,0,0) 90%)',
-          }}
-        />
-      </div>
-
-      {/* 4. Lower-Page Majestic Earth Horizon (Visible behind FAQ, Final CTA, & Footer) */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '-120px',
-          left: '50%',
-          transform: `translateX(-50%) translateY(${lowerEarthParallax}px)`,
-          width: '170vw',
-          maxWidth: '2600px',
-          height: '1100px',
-          opacity: scrollY > 2800 ? Math.min(0.9, (scrollY - 2800) / 400) : 0,
-          transition: 'transform 0.1s ease-out, opacity 0.3s ease-out',
-          pointerEvents: 'none',
-        }}
-      >
-        {/* Cyan sunrise glow */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '40px',
-            left: '20%',
-            right: '20%',
-            height: '260px',
-            background: 'radial-gradient(ellipse at 50% 30%, rgba(0, 229, 255, 0.4) 0%, rgba(2, 132, 199, 0.22) 50%, transparent 80%)',
-            filter: 'blur(45px)',
-          }}
-        />
-        <img
-          src="/assets/hero_earth.jpg"
-          alt="Atmospheric Earth view behind CTA"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center 25%',
-            borderRadius: '50% 50% 0 0 / 22% 22% 0 0',
-            opacity: 0.9,
-            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 50%, rgba(0,0,0,0.3) 85%, rgba(0,0,0,0) 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 50%, rgba(0,0,0,0.3) 85%, rgba(0,0,0,0) 100%)',
-          }}
-        />
-      </div>
-
-      {/* 5. Global subtle vignette gradient connecting all sections */}
+      {/* Radial vignette — preserves text readability */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'radial-gradient(circle at 50% 50%, transparent 40%, rgba(3, 7, 18, 0.75) 100%)',
+          background:
+            'radial-gradient(ellipse at 50% 42%, rgba(3,7,18,0.05) 0%, rgba(3,7,18,0.38) 62%, rgba(3,7,18,0.88) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Bottom fade — blends into footer */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: '280px',
+          background: 'linear-gradient(to bottom, transparent, rgba(3,7,18,0.96))',
           pointerEvents: 'none',
         }}
       />
     </div>
   );
 };
+

@@ -22,60 +22,6 @@ export const Hero: React.FC<HeroProps> = ({ onOpenTry, onScrollToUseCases }) => 
         overflow: 'hidden',
       }}
     >
-      {/* 1. Upper Left: Crescent Moon */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '90px',
-          left: '7vw',
-          width: '84px',
-          height: '84px',
-          zIndex: 2,
-          pointerEvents: 'none',
-          animation: 'floatSlow 14s ease-in-out infinite alternate',
-        }}
-      >
-        <img
-          src="/assets/crescent_moon.svg"
-          alt="Crescent Moon in deep space"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            filter: 'drop-shadow(0 0 12px rgba(224, 242, 254, 0.4))',
-          }}
-        />
-      </div>
-
-      {/* 2. Upper Right: Scientific Satellite Station */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '95px',
-          right: '5vw',
-          width: '280px',
-          height: '280px',
-          zIndex: 2,
-          pointerEvents: 'none',
-          transform: 'rotate(-12deg)',
-          animation: 'floatSlow 18s ease-in-out infinite alternate-reverse',
-        }}
-      >
-        <img
-          src="/assets/satellite.jpg"
-          alt="Earth observation satellite in orbit"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            borderRadius: '50%',
-            maskImage: 'radial-gradient(circle at 45% 45%, black 45%, rgba(0,0,0,0.85) 60%, transparent 80%)',
-            WebkitMaskImage: 'radial-gradient(circle at 45% 45%, black 45%, rgba(0,0,0,0.85) 60%, transparent 80%)',
-            filter: 'drop-shadow(0 0 25px rgba(0, 229, 255, 0.35))',
-          }}
-        />
-      </div>
-
       {/* 3. Hero Left Side Technical Information */}
       <div
         className="technical-side-text"
