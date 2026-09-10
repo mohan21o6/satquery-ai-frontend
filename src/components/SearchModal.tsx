@@ -13,14 +13,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onNav
   if (!isOpen) return null;
 
   const items = [
-    { title: 'Remote-Sensing VLM Model Specs', category: 'Models', id: 'models', icon: Cpu },
-    { title: 'Optical + SAR Fusion Architecture', category: 'Models', id: 'models', icon: Cpu },
-    { title: 'Change Intelligence & Bi-Temporal VQA', category: 'Models', id: 'models', icon: Cpu },
-    { title: 'Disaster Management & Flood Mapping', category: 'Use Cases', id: 'use-cases', icon: MapPin },
-    { title: 'Agriculture & Crop Health Telemetry', category: 'Use Cases', id: 'use-cases', icon: MapPin },
+    { title: 'ChangeFormer V6 Siamese ViT Specs', category: 'Models', id: 'models', icon: Cpu },
+    { title: 'Spatial Difference Neck Architecture', category: 'Models', id: 'models', icon: Cpu },
+    { title: 'Bi-Temporal Change Detection & Masks', category: 'Models', id: 'models', icon: Cpu },
+    { title: 'Urban Growth & Infrastructure Tracking', category: 'Use Cases', id: 'use-cases', icon: MapPin },
+    { title: 'Environmental Change Telemetry', category: 'Use Cases', id: 'use-cases', icon: MapPin },
     { title: 'Supported Formats (GeoTIFF, TIFF, PNG, JPEG)', category: 'Docs', id: 'inputs', icon: FileText },
-    { title: '7-Step Agentic Workflow & Tool Dispatch', category: 'Workflow', id: 'how-it-works', icon: FileText },
-    { title: 'Frequently Asked Questions & Encryption', category: 'FAQ', id: 'faq', icon: FileText },
+    { title: 'Change Detection Workflow & Alignment', category: 'Workflow', id: 'how-it-works', icon: FileText },
+    { title: 'Frequently Asked Questions & Security', category: 'FAQ', id: 'faq', icon: FileText },
   ];
 
   const filtered = items.filter(

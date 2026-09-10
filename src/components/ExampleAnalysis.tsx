@@ -7,17 +7,17 @@ export const ExampleAnalysis: React.FC = () => {
   const [traceStep, setTraceStep] = useState(5);
 
   const queries = [
-    'What changed between these two satellite images?',
-    'Identify flood damage and submerged infrastructure',
-    'Detect illegal logging corridors in reserved sectors',
+    'Detect bi-temporal changes between T1 (2022) and T2 (2024)',
+    'Extract 256x256 binary change mask and pixel count',
+    'Calculate surface change ratio and pixel statistics',
   ];
 
   const traceItems = [
-    'Query classified as Bi-temporal Change VQA',
-    'Two temporal images detected (Oct 2022 vs Oct 2024)',
-    'Change Detection Model (Siamese ViT) selected',
-    'Pixel-level difference matrix & Change VQA executed',
-    'Visual evidence generated: +34.2% built-up increase',
+    'Bi-temporal satellite image pair detected (2022 vs 2024)',
+    'Spatial dimension co-registration and 256×256 tensor alignment',
+    'ChangeFormer V6 Siamese ViT forward inference executed',
+    'Pixel-level binary change mask generated (255 / 0 values)',
+    'Quantitative statistics: 12.4% surface change (8,126 / 65,536 px)',
   ];
 
   const handleRunQuery = (q: string) => {
@@ -375,10 +375,10 @@ export const ExampleAnalysis: React.FC = () => {
                     marginBottom: '16px',
                   }}
                 >
-                  "Built-up area increased in the eastern region."
+                  "ChangeFormer binary change mask and pixel metrics generated."
                 </div>
 
-                {/* Confidence Meter */}
+                {/* Change Metric Meter */}
                 <div>
                   <div
                     style={{
@@ -390,8 +390,8 @@ export const ExampleAnalysis: React.FC = () => {
                       marginBottom: '8px',
                     }}
                   >
-                    <span>Confidence</span>
-                    <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>91%</span>
+                    <span>Surface Change Ratio</span>
+                    <span style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>12.4% (8,126 px)</span>
                   </div>
 
                   <div
@@ -405,7 +405,7 @@ export const ExampleAnalysis: React.FC = () => {
                   >
                     <div
                       style={{
-                        width: '91%',
+                        width: '12.4%',
                         height: '100%',
                         borderRadius: '4px',
                         background: 'linear-gradient(to right, #0284c7, #00e5ff)',

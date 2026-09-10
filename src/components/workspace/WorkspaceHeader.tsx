@@ -27,14 +27,32 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
     .slice(0, 2)
     .join('') || 'U';
 
+  // Real-time backend status polling
+  const [isBackendLive, setIsBackendLive] = useState<boolean | null>(null);
+
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+    let isMounted = true;
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8001/health', { method: 'GET', signal: AbortSignal.timeout(3000) })
+          .catch(() => fetch('http://localhost:8001/health', { method: 'GET', signal: AbortSignal.timeout(3000) }));
+        if (res && res.ok) {
+          const data = await res.json();
+          if (isMounted) setIsBackendLive(data.status === 'ok');
+        } else {
+          if (isMounted) setIsBackendLive(false);
+        }
+      } catch {
+        if (isMounted) setIsBackendLive(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    checkHealth();
+    const interval = setInterval(checkHealth, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -107,8 +125,37 @@ export const WorkspaceHeader: React.FC<WorkspaceHeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Upgrade Button & Dynamic User Profile */}
+      {/* Right: Health Badge, Upgrade Button & Dynamic User Profile */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+        {/* ChangeFormer Backend Live Status Badge */}
+        <div
+          title={isBackendLive ? "ChangeFormer model loaded and running on http://127.0.0.1:8001" : "ChangeFormer backend offline (run python app.py)"}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 12px',
+            borderRadius: 'var(--radius-full)',
+            background: isBackendLive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            border: isBackendLive ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
+            fontSize: '11px',
+            fontFamily: 'var(--font-mono)',
+            color: isBackendLive ? '#4ade80' : '#f87171',
+            letterSpacing: '0.03em',
+          }}
+        >
+          <span
+            style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: isBackendLive ? '#22c55e' : '#ef4444',
+              boxShadow: isBackendLive ? '0 0 8px #22c55e' : '0 0 8px #ef4444',
+            }}
+          />
+          <span>{isBackendLive ? 'ChangeFormer Live' : 'ChangeFormer Offline'}</span>
+        </div>
+
         {/* Upgrade Button */}
         <button
           style={{

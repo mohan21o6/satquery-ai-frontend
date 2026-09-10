@@ -8,61 +8,61 @@ export const SpecialistModels: React.FC = () => {
     {
       id: 'model-01',
       num: '01',
-      name: 'Remote-Sensing VLM',
-      tag: 'VISION + LANGUAGE',
+      name: 'Siamese ViT Encoder',
+      tag: 'FEATURE EXTRACTION',
       icon: Eye,
-      arch: 'Transformer / GeoCLIP + LLaVA-RS',
-      params: '7.8B Parameters',
+      arch: 'Dual-Branch Siamese Vision Transformer',
+      params: 'ChangeFormer Encoder',
       capabilities: [
-        'Remote-sensing image understanding',
-        'Visual Question Answering (VQA)',
-        'Zero-shot scene captioning',
-        'Multi-spectral band synthesis',
+        'Hierarchical multi-scale feature maps',
+        'Co-registered patch embedding',
+        'Dual-temporal weight sharing',
+        'Long-range spatial relation modeling',
       ],
     },
     {
       id: 'model-02',
       num: '02',
-      name: 'Grounding Model',
-      tag: 'TEXT → REGION',
+      name: 'Spatial Difference Neck',
+      tag: 'TEMPORAL COMPARISON',
       icon: Target,
-      arch: 'Grounding-DINO-RS / SAM-Geo',
-      params: '3.4B Parameters',
+      arch: 'Multi-Scale Feature Subtraction',
+      params: '4-Stage Difference Module',
       capabilities: [
-        'Text-guided localization',
-        'Precise geo-bounding boxes',
-        'Instance region segmentation',
-        'Zero-shot infrastructure tagging',
+        'Scale-wise feature differential mapping',
+        'Spatial distortion alignment',
+        'Suppression of seasonal illumination shifts',
+        'Fine structural boundary preservation',
       ],
     },
     {
       id: 'model-03',
       num: '03',
-      name: 'Change Intelligence',
-      tag: 'TIME → CHANGE',
+      name: 'Contextual Transformer',
+      tag: 'ATTENTION REFINEMENT',
       icon: Clock4,
-      arch: 'Bi-Temporal Siamese ViT + Change-Agent',
-      params: '5.2B Parameters',
+      arch: 'Multi-Head Self-Attention Decoder',
+      params: 'Transformer Decoder',
       capabilities: [
-        'Bi-temporal spatial difference analysis',
-        'Pixel-level change mask detection',
-        'Change semantic description',
-        'Comparative Change VQA',
+        'Global contextual attention fusion',
+        'Cross-scale feature upsampling',
+        'Noise filtering & edge sharpening',
+        'Bitemporal change correlation',
       ],
     },
     {
       id: 'model-04',
       num: '04',
-      name: 'Optical + SAR Fusion',
-      tag: 'MULTI-SENSOR INTELLIGENCE',
+      name: 'Binary Pixel Head',
+      tag: 'OUTPUT MASK GENERATION',
       icon: Layers,
-      arch: 'Cross-Attention Dual-Stream Encoder',
-      params: '6.1B Parameters',
+      arch: '256×256 Segmentation Classifier',
+      params: 'Sigmoid Probability Output',
       capabilities: [
-        'Optical + SAR joint co-registration',
-        'All-weather built-up classification',
-        'Sub-surface and water penetration',
-        'Cross-modal feature extraction',
+        '256×256 binary change mask (0 / 255)',
+        'Precise changed pixel count calculation',
+        'Total pixel surface ratio telemetry',
+        'Exportable lossless PNG change maps',
       ],
     },
   ];
@@ -84,12 +84,12 @@ export const SpecialistModels: React.FC = () => {
             marginBottom: '52px',
           }}
         >
-          <span className="eyebrow">SPECIALIZED AI MODELS</span>
+          <span className="eyebrow">CHANGEFORMER ARCHITECTURE</span>
           <h2 className="section-title" style={{ marginBottom: '16px' }}>
-            One Question.<br />The Right Intelligence.
+            Siamese Transformer.<br />Pixel-Level Precision.
           </h2>
           <p className="section-subtitle">
-            SatQuery AI orchestrates specialized remote-sensing models instead of relying on a single generic vision model.
+            SatQuery AI leverages the ChangeFormer transformer architecture to deliver accurate, pixel-level binary change detection across bi-temporal satellite acquisitions.
           </p>
         </div>
 

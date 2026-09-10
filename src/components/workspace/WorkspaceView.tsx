@@ -5,6 +5,7 @@ import { WorkspaceBackground } from './WorkspaceBackground';
 import { WorkspaceInitial } from './WorkspaceInitial';
 import { WorkspaceSingleImageResult } from './WorkspaceSingleImageResult';
 import { WorkspaceTwoImageResult } from './WorkspaceTwoImageResult';
+import { WorkspaceSarFusionResult } from './WorkspaceSarFusionResult';
 import { WorkspaceLoadingState } from './WorkspaceLoadingState';
 import { WorkspaceLightbox } from './WorkspaceLightbox';
 import { WorkspaceReportModal } from './WorkspaceReportModal';
@@ -24,8 +25,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   onLogout,
 }) => {
   const [activeNav, setActiveNav] = useState('new-chat');
-  const [stage, setStage] = useState<'initial' | 'loading' | 'single-result' | 'two-result'>('initial');
-  const [pendingType, setPendingType] = useState<'single' | 'change'>('single');
+  const [stage, setStage] = useState<'initial' | 'loading' | 'single-result' | 'two-result' | 'sar-fusion-result'>('initial');
+  const [pendingType, setPendingType] = useState<'single' | 'change' | 'sar-fusion' | 'florence-2'>('single');
   const [currentQuery, setCurrentQuery] = useState('Describe this satellite image.');
   const [currentImages, setCurrentImages] = useState<string[]>(['/assets/workspace_river_scene.svg']);
 
@@ -38,7 +39,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
   const pendingExecRef = useRef<{
     query: string;
     images: string[];
-    type: 'single' | 'change' | 'custom';
+    type: 'single' | 'change' | 'sar-fusion' | 'florence-2' | 'custom';
   } | null>(null);
 
   // Modals state
@@ -48,24 +49,46 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     title: '',
   });
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reportStats, setReportStats] = useState<any>(null);
+  const [reportBeforeImg, setReportBeforeImg] = useState<string | undefined>(undefined);
+  const [reportAfterImg, setReportAfterImg] = useState<string | undefined>(undefined);
+  const [reportMaskImg, setReportMaskImg] = useState<string | undefined>(undefined);
   const [showShareToast, setShowShareToast] = useState(false);
 
+  const handleOpenReport = (stats?: any, before?: string, after?: string, mask?: string) => {
+    setReportStats(stats || null);
+    setReportBeforeImg(before || currentImages[0]);
+    setReportAfterImg(after || currentImages[1]);
+    setReportMaskImg(mask);
+    setIsReportOpen(true);
+  };
+
   // ── Execute query (gate for unauthenticated users) ────────────
-  const handleExecuteQuery = (query: string, images: string[], type: 'single' | 'change' | 'custom') => {
+  const handleExecuteQuery = (query: string, images: string[], type: 'single' | 'change' | 'sar-fusion' | 'florence-2' | 'custom') => {
     if (!currentUser) {
-      // Save what the user wanted to run, then show auth gate
       pendingExecRef.current = { query, images, type };
       setAuthGateOpen(true);
       return;
     }
-    // Authenticated — run immediately
     _runQuery(query, images, type);
   };
 
-  const _runQuery = (query: string, images: string[], type: 'single' | 'change' | 'custom') => {
+  const _runQuery = (query: string, images: string[], type: 'single' | 'change' | 'sar-fusion' | 'florence-2' | 'custom') => {
     setCurrentQuery(query);
     setCurrentImages(images);
-    setPendingType(type === 'change' ? 'change' : 'single');
+
+    const qLower = query.toLowerCase();
+    if (type === 'sar-fusion' || qLower.includes('sar') || qLower.includes('fusion')) {
+      setPendingType('sar-fusion');
+    } else if (type === 'florence-2' || type === 'single') {
+      // Florence-2 handles all single-image queries (Case A + Case B)
+      setPendingType('florence-2');
+    } else if (type === 'change' || images.length >= 2) {
+      setPendingType('change');
+    } else {
+      // Default single image → Florence-2
+      setPendingType('florence-2');
+    }
     setStage('loading');
   };
 
@@ -74,25 +97,25 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
     setCurrentUser(user);
     setAuthGateOpen(false);
 
-    // Resume the pending query (if any) after login
     if (pendingExecRef.current) {
       const { query, images, type } = pendingExecRef.current;
       pendingExecRef.current = null;
-      // Small delay so the modal closes smoothly first
       setTimeout(() => _runQuery(query, images, type), 80);
     }
   };
 
-  // ── Auth gate dismiss ("Maybe later") ────────────────────────
   const handleAuthGateDismiss = () => {
     pendingExecRef.current = null;
     setAuthGateOpen(false);
   };
 
   const handleLoadingComplete = () => {
-    if (pendingType === 'change') {
+    if (pendingType === 'sar-fusion') {
+      setStage('sar-fusion-result');
+    } else if (pendingType === 'change') {
       setStage('two-result');
     } else {
+      // florence-2 or single → single-result (WorkspaceSingleImageResult)
       setStage('single-result');
     }
   };
@@ -171,6 +194,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             userQuery={currentQuery}
             userImage={currentImages[0] || '/assets/workspace_river_scene.svg'}
             currentUser={currentUser}
+            queryType={pendingType === 'florence-2' ? 'florence-2' : 'single'}
             onRunFollowUp={(query, type) => handleExecuteQuery(query, currentImages, type)}
             onOpenLightbox={(img, title) => setLightboxState({ isOpen: true, img, title })}
             onGenerateReport={() => setIsReportOpen(true)}
@@ -185,7 +209,19 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
             currentUser={currentUser}
             onRunFollowUp={(query, type) => handleExecuteQuery(query, currentImages, type)}
             onOpenLightbox={(img, title) => setLightboxState({ isOpen: true, img, title })}
-            onGenerateReport={() => setIsReportOpen(true)}
+            onGenerateReport={handleOpenReport}
+            onShare={handleShare}
+          />
+        )}
+
+        {stage === 'sar-fusion-result' && (
+          <WorkspaceSarFusionResult
+            userQuery={currentQuery}
+            images={currentImages}
+            currentUser={currentUser}
+            onRunFollowUp={(query, type) => handleExecuteQuery(query, currentImages, type)}
+            onOpenLightbox={(img, title) => setLightboxState({ isOpen: true, img, title })}
+            onGenerateReport={() => handleOpenReport(undefined, currentImages[0], currentImages[1])}
             onShare={handleShare}
           />
         )}
@@ -204,6 +240,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = ({
         isOpen={isReportOpen}
         onClose={() => setIsReportOpen(false)}
         analysisType={stage === 'two-result' ? 'change' : 'single'}
+        stats={reportStats}
+        beforeImg={reportBeforeImg}
+        afterImg={reportAfterImg}
+        maskImg={reportMaskImg}
       />
 
       {/* ── ChatGPT-Style Auth Gate ── renders ON TOP of workspace ─ */}

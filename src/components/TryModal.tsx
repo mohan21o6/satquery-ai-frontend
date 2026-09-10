@@ -102,7 +102,7 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
         {/* 1. Dataset Selector */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', display: 'block', marginBottom: '8px' }}>
-            1. SELECT REMOTE SENSING DATASET
+            1. SELECT BI-TEMPORAL SAMPLE DATASET
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
             {sampleDatasets.map((ds) => (
@@ -132,14 +132,11 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
         {/* 2. Model Routing */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', display: 'block', marginBottom: '8px' }}>
-            2. DISPATCH SPECIALIST MODEL
+            2. ACTIVE MODEL PIPELINE
           </label>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             {[
-              { id: 'vlm', label: 'Remote-Sensing VLM' },
-              { id: 'change-vit', label: 'Change Intelligence (Siamese ViT)' },
-              { id: 'grounding', label: 'Grounding-DINO-RS' },
-              { id: 'fusion', label: 'Optical + SAR Fusion' },
+              { id: 'change-vit', label: 'ChangeFormer V6 (Active Siamese ViT)' },
             ].map((m) => (
               <button
                 key={m.id}
@@ -149,9 +146,9 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
                   borderRadius: 'var(--radius-full)',
                   fontSize: '12px',
                   cursor: 'pointer',
-                  background: selectedModel === m.id ? 'rgba(0, 229, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                  border: selectedModel === m.id ? '1px solid #00e5ff' : '1px solid rgba(255, 255, 255, 0.1)',
-                  color: selectedModel === m.id ? '#00e5ff' : '#94a3b8',
+                  background: 'rgba(0, 229, 255, 0.2)',
+                  border: '1px solid #00e5ff',
+                  color: '#00e5ff',
                 }}
               >
                 {m.label}
@@ -163,7 +160,7 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
         {/* 3. Query Bar */}
         <div style={{ marginBottom: '24px' }}>
           <label style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', display: 'block', marginBottom: '8px' }}>
-            3. NATURAL LANGUAGE INQUIRY
+            3. CHANGE DETECTION OBJECTIVE
           </label>
           <div style={{ display: 'flex', gap: '10px' }}>
             <input
@@ -195,7 +192,7 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
               ) : (
                 <>
                   <Play size={16} />
-                  <span>Execute</span>
+                  <span>Execute ChangeFormer</span>
                 </>
               )}
             </button>
@@ -219,7 +216,7 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
             {/* Visual Evidence Graphic */}
             <div style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', height: '180px' }}>
               <img
-                src={selectedDataset === 'bitemporal' ? '/assets/bitemporal_change.svg' : '/assets/usecase_disaster.svg'}
+                src={'/assets/bitemporal_change.svg'}
                 alt="Visual Evidence"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
@@ -237,7 +234,7 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
                   border: '1px solid rgba(0, 229, 255, 0.4)',
                 }}
               >
-                EVIDENCE MASK #RS-994
+                CHANGEFORMER BINARY MASK
               </div>
             </div>
 
@@ -245,27 +242,25 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                  AGENT SYNTHESIS
+                  CHANGEFORMER TELEMETRY
                 </span>
                 <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>
-                  CONFIDENCE: 94.8%
+                  GRID: 256×256 px
                 </span>
               </div>
 
               <div style={{ fontSize: '0.95rem', color: '#f8fafc', lineHeight: 1.5, fontWeight: 500 }}>
-                {selectedDataset === 'bitemporal'
-                  ? 'Significant built-up conversion (+34.2%) identified in the eastern quad. New warehouse logistics and asphalt arterial detected with zero false-positives over agricultural parcels.'
-                  : 'High water backscatter identified across urban zones with 12.4 km² inundation extent. Cloud penetration successful via SAR amplitude cross-referencing.'}
+                Pixel-level binary change mask generated. 8,126 changed pixels detected out of 65,536 total pixels (12.4% change ratio).
               </div>
 
               <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                 <span className="tech-tag" style={{ fontSize: '9.5px' }}>
                   <ShieldCheck size={12} />
-                  GEOMETRICALLY VERIFIED
+                  CHANGEFORMER V6
                 </span>
                 <span className="tech-tag" style={{ fontSize: '9.5px' }}>
                   <Layers size={12} />
-                  CRS: EPSG:4326
+                  256×256 TENSOR
                 </span>
               </div>
             </div>

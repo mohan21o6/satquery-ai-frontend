@@ -9,11 +9,11 @@ export const WorkspaceLoadingState: React.FC<WorkspaceLoadingStateProps> = ({ on
   const [currentStep, setCurrentStep] = useState(0);
 
   const steps = [
-    'Satellite imagery tiles ingested and CRS verified',
-    'Semantic query parsed · Intent classified',
-    'Specialist AI model selected (Remote-Sensing Engine)',
-    'Tile-level tensor inference & spectral difference executed',
-    'Visual evidence and confidence bounds synthesized',
+    'Upload complete · Bi-temporal frames received',
+    'Preparing images · Validating input dimensions',
+    'Aligning images · Preserving spatial proportions',
+    'Running ChangeFormer · Swin-Transformer inference',
+    'Generating change map · Calculating pixel statistics',
   ];
 
   useEffect(() => {
@@ -23,12 +23,12 @@ export const WorkspaceLoadingState: React.FC<WorkspaceLoadingStateProps> = ({ on
           clearInterval(interval);
           setTimeout(() => {
             onComplete();
-          }, 450);
+          }, 350);
           return steps.length;
         }
         return prev + 1;
       });
-    }, 400);
+    }, 320);
 
     return () => clearInterval(interval);
   }, [onComplete]);

@@ -1,133 +1,257 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  FileText,
-  Building2,
-  Droplets,
-  Trees,
-  Compass,
-  Clock,
   Maximize2,
-  Download,
   Share2,
-  ArrowRight,
   Send,
-  Sliders,
-  Image as ImageIcon,
   RotateCw,
-  Sparkles,
   Layers,
+  Eye,
+  TrendingUp,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  MessageSquare,
+  ImageIcon,
 } from 'lucide-react';
 
 import type { UserSession } from '../AuthModal';
+
+const API_BASE = 'http://127.0.0.1:8001';
 
 interface WorkspaceSingleImageResultProps {
   userQuery: string;
   userImage: string;
   currentUser: UserSession | null;
-  onRunFollowUp: (query: string, type: 'single' | 'change') => void;
+  queryType?: 'single' | 'florence-2';
+  onRunFollowUp: (query: string, type: 'single' | 'change' | 'sar-fusion' | 'florence-2') => void;
   onOpenLightbox: (img: string, title: string) => void;
   onGenerateReport: () => void;
   onShare: () => void;
 }
 
+interface FlorenCaseAResult {
+  case: 'A';
+  question: string;
+  answer: string;
+}
+
+interface FlorenceCaseBResult {
+  case: 'B';
+  prompt: string;
+  target: string;
+  mask: string | null;
+  overlay: string | null;
+  area_percentage: number;
+  bbox?: { x: number; y: number; width: number; height: number } | null;
+  message: string;
+}
+
+type FlorenceResult = FlorenCaseAResult | FlorenceCaseBResult | null;
+
+// Detect whether a query is a Case B (spatial/highlight) request
+const HIGHLIGHT_PATTERN = /^(?:highlight|show(?: me)?|locate|find|detect|mark|segment|identify)\s+/i;
+function isCaseB(query: string): boolean {
+  return HIGHLIGHT_PATTERN.test(query.trim());
+}
+
+// Lossless helper to convert image source (Blob URL, DataURL, Asset path) to a valid File with correct extension
+async function urlToImageFile(imageUrl: string): Promise<File> {
+  const resp = await fetch(imageUrl);
+  const blob = await resp.blob();
+
+  // Extract raw name if present
+  let baseName = 'satellite_image';
+  if (!imageUrl.startsWith('blob:') && !imageUrl.startsWith('data:')) {
+    const rawName = imageUrl.split('/').pop()?.split('?')[0];
+    if (rawName) baseName = rawName;
+  }
+
+  // Determine valid extension and mime type from Blob MIME
+  const mime = (blob.type || '').toLowerCase();
+  let ext = '.png';
+  let mimeType = 'image/png';
+
+  if (mime === 'image/jpeg' || mime === 'image/jpg') {
+    ext = '.jpg';
+    mimeType = 'image/jpeg';
+  } else if (mime === 'image/png') {
+    ext = '.png';
+    mimeType = 'image/png';
+  } else if (mime === 'image/tiff' || mime === 'image/tif') {
+    ext = '.tif';
+    mimeType = 'image/tiff';
+  } else if (mime === 'image/webp') {
+    ext = '.webp';
+    mimeType = 'image/webp';
+  } else if (mime === 'image/bmp') {
+    ext = '.bmp';
+    mimeType = 'image/bmp';
+  }
+
+  // If baseName already ends with a valid extension, preserve it
+  if (/\.(png|jpe?g|tiff?|bmp|webp)$/i.test(baseName)) {
+    return new File([blob], baseName, { type: mimeType });
+  }
+
+  // Otherwise append the determined extension
+  const safeFilename = `${baseName}${ext}`;
+  return new File([blob], safeFilename, { type: mimeType });
+}
+
+// Fetch helpers ─────────────────────────────────────────────────────────────
+
+async function runCaseA(imageUrl: string, question: string): Promise<FlorenCaseAResult> {
+  const file = await urlToImageFile(imageUrl);
+
+  const form = new FormData();
+  form.append('image', file, file.name);
+  form.append('question', question);
+
+  const resp = await fetch(`${API_BASE}/single-image/analyze`, { method: 'POST', body: form });
+  if (!resp.ok) {
+    let errMsg = `HTTP ${resp.status}`;
+    try {
+      const err = await resp.json();
+      errMsg = err.detail || err.error || err.message || errMsg;
+    } catch {
+      errMsg = resp.statusText || errMsg;
+    }
+    throw new Error(errMsg);
+  }
+
+  const data = await resp.json();
+  if (data && data.success === false) {
+    throw new Error(data.error || data.detail || 'Analysis was unsuccessful.');
+  }
+
+  const answer = data?.answer ?? data?.message ?? (typeof data === 'string' ? data : 'Analysis complete.');
+  return {
+    case: 'A',
+    question: data?.question || question,
+    answer: String(answer),
+  };
+}
+
+async function runCaseB(imageUrl: string, prompt: string): Promise<FlorenceCaseBResult> {
+  const file = await urlToImageFile(imageUrl);
+
+  const form = new FormData();
+  form.append('image', file, file.name);
+  form.append('prompt', prompt);
+
+  const resp = await fetch(`${API_BASE}/single-image/segment`, { method: 'POST', body: form });
+  if (!resp.ok) {
+    let errMsg = `HTTP ${resp.status}`;
+    try {
+      const err = await resp.json();
+      errMsg = err.detail || err.error || err.message || errMsg;
+    } catch {
+      errMsg = resp.statusText || errMsg;
+    }
+    throw new Error(errMsg);
+  }
+
+  const data = await resp.json();
+  if (data && data.success === false && data.error) {
+    throw new Error(data.error);
+  }
+
+  return {
+    case: 'B',
+    prompt: data?.prompt || prompt,
+    target: data?.target || '',
+    mask: data?.mask || null,
+    overlay: data?.overlay || null,
+    area_percentage: typeof data?.area_percentage === 'number' ? data.area_percentage : 0,
+    bbox: data?.bbox || null,
+    message: data?.message || 'Segmentation complete.',
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const WorkspaceSingleImageResult: React.FC<WorkspaceSingleImageResultProps> = ({
   userQuery,
   userImage,
   currentUser,
+  queryType,
   onRunFollowUp,
   onOpenLightbox,
-  onGenerateReport,
   onShare,
 }) => {
-  const [activeTab, setActiveTab] = useState<'map' | 'analysis'>('map');
+  const [result, setResult] = useState<FlorenceResult>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
-  const [highlightedElement, setHighlightedElement] = useState<string | null>(null);
 
-  const keyElements = [
-    {
-      id: 'urban',
-      title: 'Built-up Area',
-      desc: 'Dense urban settlements on the western side, including residential and commercial buildings.',
-      icon: Building2,
-      badgeBg: 'rgba(244, 63, 94, 0.15)',
-      badgeBorder: 'rgba(244, 63, 94, 0.4)',
-      badgeColor: '#fb7185',
-    },
-    {
-      id: 'water',
-      title: 'Water Body',
-      desc: 'A major river flowing diagonally across the image.',
-      icon: Droplets,
-      badgeBg: 'rgba(14, 165, 233, 0.15)',
-      badgeBorder: 'rgba(14, 165, 233, 0.4)',
-      badgeColor: '#38bdf8',
-    },
-    {
-      id: 'bridge',
-      title: 'Bridge',
-      desc: 'A road bridge connecting both sides of the river.',
-      icon: Layers,
-      badgeBg: 'rgba(168, 85, 247, 0.15)',
-      badgeBorder: 'rgba(168, 85, 247, 0.4)',
-      badgeColor: '#c084fc',
-    },
-    {
-      id: 'vegetation',
-      title: 'Vegetation',
-      desc: 'Agricultural fields and green areas, mainly on the eastern side.',
-      icon: Trees,
-      badgeBg: 'rgba(34, 197, 94, 0.15)',
-      badgeBorder: 'rgba(34, 197, 94, 0.4)',
-      badgeColor: '#4ade80',
-    },
-    {
-      id: 'roads',
-      title: 'Road Network',
-      desc: 'Multiple roads and highways are visible, connecting urban areas and rural regions.',
-      icon: Compass,
-      badgeBg: 'rgba(249, 115, 22, 0.15)',
-      badgeBorder: 'rgba(249, 115, 22, 0.4)',
-      badgeColor: '#fb923c',
-    },
-    {
-      id: 'landuse',
-      title: 'Land Use',
-      desc: 'Urban (west) | Agricultural (east) | Mixed settlements along roads.',
-      icon: Clock,
-      badgeBg: 'rgba(234, 179, 8, 0.15)',
-      badgeBorder: 'rgba(234, 179, 8, 0.4)',
-      badgeColor: '#facc15',
-    },
-  ];
+  const executeAnalysis = useCallback(async () => {
+    setIsLoading(true);
+    setApiError(null);
+    setResult(null);
 
-  const relatedQueries = [
-    'What is the land use in this image?',
-    'How many bridges are visible?',
-    'Highlight the built-up areas.',
-    'Is there any deforestation?',
-    'Detect changes with another image.',
-  ];
+    try {
+      if (isCaseB(userQuery)) {
+        const res = await runCaseB(userImage, userQuery);
+        setResult(res);
+      } else {
+        const res = await runCaseA(userImage, userQuery);
+        setResult(res);
+      }
+    } catch (err: any) {
+      console.error('[Single Image Analysis Error]', err);
+      setApiError(err?.message || 'Analysis failed. Please ensure the backend server is running.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userImage, userQuery]);
 
-  const quickPills = [
-    'What objects are visible?',
-    'Identify built-up areas',
-    'Highlight the water body',
-    'Classify land use',
-    'Detect changes over time?',
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+    setApiError(null);
+    setResult(null);
+
+    (async () => {
+      try {
+        if (isCaseB(userQuery)) {
+          const res = await runCaseB(userImage, userQuery);
+          if (isMounted) setResult(res);
+        } else {
+          const res = await runCaseA(userImage, userQuery);
+          if (isMounted) setResult(res);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          console.error('[Single Image Analysis Error]', err);
+          setApiError(err?.message || 'Analysis failed. Please ensure the backend server is running.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userImage, userQuery]);
 
   const handleSendChat = () => {
-    if (!chatInput.trim()) return;
-    const isChange = chatInput.toLowerCase().includes('change') || chatInput.toLowerCase().includes('between');
-    onRunFollowUp(chatInput, isChange ? 'change' : 'single');
+    const q = chatInput.trim();
+    if (!q) return;
     setChatInput('');
+    onRunFollowUp(q, 'florence-2');
   };
+
+  const isCaseBResult = result && result.case === 'B';
+  const isCaseAResult = result && result.case === 'A';
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 310px',
+        gridTemplateColumns: 'minmax(0, 1fr) 310px',
         gap: '24px',
         width: '100%',
         maxWidth: '1280px',
@@ -138,28 +262,28 @@ export const WorkspaceSingleImageResult: React.FC<WorkspaceSingleImageResultProp
       }}
       className="single-result-layout"
     >
-      {/* Main Analysis Column (Left) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* ── Main Analysis Column ───────────────────────────────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
         {/* User Query Bubble */}
         <div
           style={{
-            padding: '16px 20px',
+            padding: '14px 18px',
             borderRadius: '14px',
             background: 'rgba(8, 16, 32, 0.7)',
             backdropFilter: 'blur(12px)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px',
+            gap: '14px',
           }}
         >
-          {/* Avatar with user initial */}
           <div
             style={{
               width: '34px',
               height: '34px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
@@ -171,742 +295,259 @@ export const WorkspaceSingleImageResult: React.FC<WorkspaceSingleImageResultProp
           >
             {currentUser?.name ? currentUser.name.trim().charAt(0).toUpperCase() : 'S'}
           </div>
-
-          {/* Thumbnail */}
-          <div
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '6px',
-              overflow: 'hidden',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              flexShrink: 0,
-            }}
-          >
+          <div style={{ width: '40px', height: '40px', borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.15)', flexShrink: 0 }}>
             <img src={userImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
-
-          {/* Query Text */}
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '0.95rem', fontWeight: 500, color: '#f8fafc' }}>
-              {userQuery}
-            </div>
-            <div style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-              Today, 10:21 AM
+            <div style={{ fontSize: '0.95rem', fontWeight: 500, color: '#f8fafc' }}>{userQuery}</div>
+            <div style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {isCaseB(userQuery) ? 'Feature Segmentation' : 'Visual Question & Answer'}
             </div>
           </div>
         </div>
 
-        {/* AI Response Bubble & Content */}
+        {/* Result Card */}
         <div
           style={{
             padding: '24px',
             borderRadius: '16px',
-            background: 'rgba(6, 13, 27, 0.75)',
+            background: 'rgba(6, 13, 27, 0.8)',
             backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(0, 229, 255, 0.22)',
-            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6)',
+            border: `1px solid ${apiError ? 'rgba(239,68,68,0.4)' : 'rgba(0,229,255,0.25)'}`,
+            boxShadow: '0 16px 40px rgba(0,0,0,0.6)',
           }}
         >
-          {/* AI Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: 'radial-gradient(circle at 35% 35%, rgba(0, 229, 255, 0.25), rgba(15, 23, 42, 0.8))',
-                border: '1px solid rgba(0, 229, 255, 0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="8" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-                <ellipse cx="12" cy="12" rx="10" ry="4" stroke="#00e5ff" strokeWidth="1.6" transform="rotate(-30 12 12)" />
-                <circle cx="17.5" cy="8.5" r="2.2" fill="#00e5ff" />
-              </svg>
+          {/* Card Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isCaseB(userQuery)
+                ? <Layers size={16} color="#00e5ff" />
+                : <MessageSquare size={16} color="#00e5ff" />
+              }
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#ffffff' }}>
+                {isCaseB(userQuery) ? 'Spatial Segmentation Result' : 'Visual Analysis Answer'}
+              </span>
             </div>
-            <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>
-              Here is a detailed description of the satellite image:
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+              {isLoading ? (
+                <><Loader2 size={12} className="spin" color="#00e5ff" /><span style={{ color: '#00e5ff' }}>ANALYSING...</span></>
+              ) : apiError ? (
+                <><AlertCircle size={12} color="#f87171" /><span style={{ color: '#f87171' }}>ERROR</span></>
+              ) : (
+                <><CheckCircle2 size={12} color="#10b981" /><span style={{ color: '#10b981' }}>COMPLETE</span></>
+              )}
+            </div>
           </div>
 
-          {/* 2-Column Split: Left Description & Elements, Right Map Visualization */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1.15fr',
-              gap: '24px',
-              alignItems: 'start',
-            }}
-            className="result-two-col"
-          >
-            {/* Left Column: Overall Description & Key Elements */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Overall Description Box */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <FileText size={16} color="var(--accent-cyan)" />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)', letterSpacing: '0.02em' }}>
-                    Overall Description
-                  </span>
-                </div>
-                <p
-                  style={{
-                    fontSize: '0.875rem',
-                    lineHeight: 1.65,
-                    color: 'rgba(226, 232, 240, 0.9)',
-                  }}
-                >
-                  This satellite image shows a mixed urban and natural landscape. A large river flows
-                  from the top-left to the bottom-right, with a bridge connecting the two sides. The
-                  western side (left) is densely built-up with urban areas, while the eastern side
-                  (right) contains a mix of agricultural fields, green patches, and smaller settlements.
-                </p>
+          {/* Loading state */}
+          {isLoading && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '40px 0', color: 'var(--text-secondary)' }}>
+              <Loader2 size={32} color="#00e5ff" className="spin" />
+              <span style={{ fontSize: '0.9rem' }}>
+                {isCaseB(userQuery) ? 'Finding and highlighting requested region...' : 'Analysing satellite image...'}
+              </span>
+            </div>
+          )}
+
+          {/* Error state */}
+          {!isLoading && apiError && (
+            <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: '13px', lineHeight: 1.6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, color: '#f87171', marginBottom: '6px' }}>
+                <AlertCircle size={15} />
+                <span>Analysis Failed</span>
               </div>
-
-              {/* Key Elements */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <Sparkles size={16} color="var(--accent-cyan)" />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)', letterSpacing: '0.02em' }}>
-                    Key Elements
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {keyElements.map((item) => {
-                    const Icon = item.icon;
-                    const isHighlighted = highlightedElement === item.id;
-                    return (
-                      <div
-                        key={item.id}
-                        onMouseEnter={() => setHighlightedElement(item.id)}
-                        onMouseLeave={() => setHighlightedElement(null)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '12px',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
-                          background: isHighlighted ? 'rgba(0, 229, 255, 0.08)' : 'rgba(4, 9, 21, 0.5)',
-                          border: isHighlighted ? '1px solid rgba(0, 229, 255, 0.35)' : '1px solid rgba(255, 255, 255, 0.05)',
-                          transition: 'all 0.2s ease',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '6px',
-                            background: item.badgeBg,
-                            border: `1px solid ${item.badgeBorder}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: item.badgeColor,
-                            flexShrink: 0,
-                            marginTop: '2px',
-                          }}
-                        >
-                          <Icon size={14} />
-                        </div>
-
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f8fafc', marginBottom: '2px' }}>
-                            {item.title}
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-                            {item.desc}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div>{apiError}</div>
+              <div style={{ marginTop: '8px', fontSize: '11px', color: '#94a3b8' }}>
+                Ensure the backend server is running and the visual analysis service is ready.
               </div>
             </div>
+          )}
 
-            {/* Right Column: Satellite Map Visualization */}
-            <div
-              style={{
-                borderRadius: '12px',
-                overflow: 'hidden',
-                background: '#040d1a',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
-                position: 'relative',
-              }}
-            >
-              {/* Map Controls Header */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  zIndex: 20,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                {/* Map / Analysis Toggle */}
-                <div
-                  style={{
-                    display: 'flex',
-                    background: 'rgba(3, 7, 18, 0.75)',
-                    backdropFilter: 'blur(8px)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: 'var(--radius-full)',
-                    padding: '2px',
-                  }}
-                >
-                  <button
-                    onClick={() => setActiveTab('map')}
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 'var(--radius-full)',
-                      border: 'none',
-                      background: activeTab === 'map' ? '#38bdf8' : 'transparent',
-                      color: activeTab === 'map' ? '#030712' : '#cbd5e1',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    Map
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('analysis')}
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 'var(--radius-full)',
-                      border: 'none',
-                      background: activeTab === 'analysis' ? '#38bdf8' : 'transparent',
-                      color: activeTab === 'analysis' ? '#030712' : '#cbd5e1',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    Analysis
-                  </button>
-                </div>
-
-                {/* Expand Fullscreen Button */}
+          {/* Case A: Answer */}
+          {!isLoading && isCaseAResult && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Original image */}
+              <div style={{ borderRadius: '10px', overflow: 'hidden', background: '#040d1a', border: '1px solid rgba(255,255,255,0.08)', position: 'relative', maxHeight: '340px' }}>
+                <img src={userImage} alt="Uploaded satellite image" style={{ width: '100%', maxHeight: '340px', objectFit: 'contain' }} />
                 <button
-                  onClick={() => onOpenLightbox(userImage, 'Satellite Scene Visualization')}
-                  title="Expand Map"
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '6px',
-                    background: 'rgba(3, 7, 18, 0.75)',
-                    backdropFilter: 'blur(8px)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    cursor: 'pointer',
-                  }}
+                  onClick={() => onOpenLightbox(userImage, 'Satellite Image')}
+                  style={{ position: 'absolute', bottom: '10px', right: '10px', width: '30px', height: '30px', borderRadius: '6px', background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                 >
                   <Maximize2 size={13} />
                 </button>
               </div>
 
-              {/* Map Canvas / Image */}
-              <div style={{ position: 'relative', width: '100%', height: '420px' }}>
-                <img
-                  src={userImage}
-                  alt="Satellite Analysis Scene"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  }}
-                />
-
-                {/* Overlaid Interactive Tags (matching Reference 3) */}
-                {/* 1. Urban Area Tag */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '38%',
-                    left: '12%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-full)',
-                    background: 'rgba(3, 7, 18, 0.85)',
-                    backdropFilter: 'blur(6px)',
-                    border: '1px solid rgba(0, 229, 255, 0.4)',
-                    boxShadow: '0 0 10px rgba(0, 229, 255, 0.2)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: '#fff',
-                  }}
-                >
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e5ff' }} />
-                  <span>Urban Area</span>
-                </div>
-
-                {/* 2. River Tag */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '28%',
-                    left: '52%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-full)',
-                    background: 'rgba(3, 7, 18, 0.85)',
-                    backdropFilter: 'blur(6px)',
-                    border: '1px solid rgba(14, 165, 233, 0.4)',
-                    boxShadow: '0 0 10px rgba(14, 165, 233, 0.2)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: '#fff',
-                  }}
-                >
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#38bdf8' }} />
-                  <span>River</span>
-                </div>
-
-                {/* 3. Bridge Tag */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '52%',
-                    left: '48%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-full)',
-                    background: 'rgba(3, 7, 18, 0.85)',
-                    backdropFilter: 'blur(6px)',
-                    border: '1px solid rgba(168, 85, 247, 0.4)',
-                    boxShadow: '0 0 10px rgba(168, 85, 247, 0.2)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: '#fff',
-                  }}
-                >
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#c084fc' }} />
-                  <span>Bridge</span>
-                </div>
-
-                {/* 4. Agricultural Land Tag */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '44%',
-                    right: '10%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-full)',
-                    background: 'rgba(3, 7, 18, 0.85)',
-                    backdropFilter: 'blur(6px)',
-                    border: '1px solid rgba(34, 197, 94, 0.4)',
-                    boxShadow: '0 0 10px rgba(34, 197, 94, 0.2)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: '#fff',
-                  }}
-                >
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }} />
-                  <span>Agricultural Land</span>
-                </div>
-
-                {/* Bottom Right Controls: North Compass & Scale Bar */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '12px',
-                    right: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                    gap: '6px',
-                    background: 'rgba(3, 7, 18, 0.8)',
-                    backdropFilter: 'blur(6px)',
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                  }}
-                >
-                  {/* Compass */}
-                  <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '10px',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      color: 'var(--accent-cyan)',
-                    }}
-                  >
-                    N
+              {/* Answer bubble */}
+              <div style={{ padding: '18px 20px', borderRadius: '12px', background: 'rgba(0,229,255,0.05)', border: '1px solid rgba(0,229,255,0.2)', lineHeight: 1.7 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(0,229,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MessageSquare size={13} color="#00e5ff" />
                   </div>
-                  {/* Scale Bar */}
-                  <div style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', color: '#cbd5e1' }}>
-                    0 ── 1 ── 2 km
-                  </div>
+                  <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#00e5ff', fontWeight: 600 }}>ANALYSIS RESULT</span>
                 </div>
+                <p style={{ margin: 0, fontSize: '0.95rem', color: '#e2e8f0' }}>
+                  {(result as FlorenCaseAResult).answer}
+                </p>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Case B: Mask + Overlay */}
+          {!isLoading && isCaseBResult && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Result message */}
+              <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(0,229,255,0.06)', border: '1px solid rgba(0,229,255,0.2)', fontSize: '13px', color: '#7dd3fc', lineHeight: 1.6 }}>
+                {(result as FlorenceCaseBResult).message}
+                {(result as FlorenceCaseBResult).area_percentage > 0 && (
+                  <span style={{ marginLeft: '8px', fontFamily: 'var(--font-mono)', color: '#00e5ff', fontWeight: 600 }}>
+                    ({(result as FlorenceCaseBResult).area_percentage.toFixed(1)}% of image)
+                  </span>
+                )}
+              </div>
+
+              {/* Image grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: (result as FlorenceCaseBResult).overlay ? '1fr 1fr' : '1fr', gap: '12px' }} className="seg-result-grid">
+                {/* Original */}
+                <div style={{ borderRadius: '10px', overflow: 'hidden', background: '#040d1a', border: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
+                  <div style={{ padding: '7px 10px', background: 'rgba(0,0,0,0.5)', fontSize: '10px', fontFamily: 'var(--font-mono)', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Eye size={11} /><span>ORIGINAL IMAGE</span>
+                  </div>
+                  <img src={userImage} alt="Original" style={{ width: '100%', objectFit: 'contain', maxHeight: '280px' }} />
+                  <button onClick={() => onOpenLightbox(userImage, 'Original Image')} style={{ position: 'absolute', bottom: '8px', right: '8px', width: '28px', height: '28px', borderRadius: '5px', background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <Maximize2 size={12} />
+                  </button>
+                </div>
+
+                {/* Overlay */}
+                {(result as FlorenceCaseBResult).overlay && (
+                  <div style={{ borderRadius: '10px', overflow: 'hidden', background: '#040d1a', border: '1px solid rgba(0,229,255,0.4)', boxShadow: '0 4px 20px rgba(0,229,255,0.15)', position: 'relative' }}>
+                    <div style={{ padding: '7px 10px', background: 'rgba(0,229,255,0.08)', fontSize: '10px', fontFamily: 'var(--font-mono)', color: '#00e5ff', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Layers size={11} /><span>SEGMENTED REGION</span>
+                    </div>
+                    <img src={(result as FlorenceCaseBResult).overlay!} alt="Segmentation Overlay" style={{ width: '100%', objectFit: 'contain', maxHeight: '280px' }} />
+                    <button onClick={() => onOpenLightbox((result as FlorenceCaseBResult).overlay!, `Segmentation: ${(result as FlorenceCaseBResult).target}`)} style={{ position: 'absolute', bottom: '8px', right: '8px', width: '28px', height: '28px', borderRadius: '5px', background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(0,229,255,0.4)', color: '#00e5ff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <Maximize2 size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* No detection notice */}
+              {!(result as FlorenceCaseBResult).overlay && (
+                <div style={{ padding: '14px 18px', borderRadius: '10px', background: 'rgba(234,179,8,0.07)', border: '1px solid rgba(234,179,8,0.3)', color: '#fde047', fontSize: '12px', lineHeight: 1.5 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 600, marginBottom: '4px' }}>
+                    <AlertCircle size={14} />
+                    <span>No Region Detected</span>
+                  </div>
+                  <div>The model did not find '{(result as FlorenceCaseBResult).target}' in the image. Try a different description or upload a different image.</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Bottom Contextual Chat Input Bar */}
-        <div
-          style={{
-            borderRadius: '16px',
-            background: 'rgba(6, 13, 27, 0.72)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(0, 229, 255, 0.25)',
-            padding: '14px 18px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <button
-              title="Attach image"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                padding: '4px',
-              }}
-            >
-              <ImageIcon size={18} />
-            </button>
-
+        {/* Follow-up Chat Input */}
+        <div style={{ borderRadius: '14px', background: 'rgba(6,13,27,0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(0,229,255,0.2)', padding: '12px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
             <input
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSendChat();
-              }}
-              placeholder="Ask anything about your satellite image..."
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: '#fff',
-                fontSize: '0.9rem',
-              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
+              placeholder="Ask another question or highlight a feature..."
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: '0.9rem' }}
             />
-
-            <button
-              title="Adjust Parameters"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                padding: '4px',
-              }}
-            >
-              <Sliders size={18} />
-            </button>
-
             <button
               onClick={handleSendChat}
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #00e5ff 0%, #0284c7 100%)',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                cursor: 'pointer',
-              }}
+              style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #00e5ff, #0284c7)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', cursor: 'pointer' }}
             >
-              <Send size={15} />
+              <Send size={14} />
             </button>
           </div>
-
-          {/* Quick pills below input */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {quickPills.map((pill, idx) => (
+          {/* Quick suggestion pills */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {['Is there a water body?', 'Highlight the water body.', 'Highlight the buildings.', 'Highlight the roads.'].map((pill, i) => (
               <button
-                key={idx}
+                key={i}
                 onClick={() => {
-                  const isChange = pill.includes('change');
-                  onRunFollowUp(pill, isChange ? 'change' : 'single');
+                  onRunFollowUp(pill, 'florence-2');
                 }}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: 'var(--radius-full)',
-                  background: 'rgba(8, 16, 32, 0.6)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  color: 'var(--text-secondary)',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                }}
+                style={{ padding: '4px 11px', borderRadius: '20px', background: 'rgba(8,16,32,0.6)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer' }}
               >
                 {pill}
               </button>
             ))}
-
             <button
               onClick={() => setChatInput('')}
-              title="Reset"
-              style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: 'var(--text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
+              style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
-              <RotateCw size={12} />
+              <RotateCw size={11} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Right Insights & Actions Panel (matching Reference 3) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* 1. Next Steps Panel */}
-        <div
-          style={{
-            padding: '20px',
-            borderRadius: '14px',
-            background: 'rgba(6, 13, 27, 0.7)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              color: '#ffffff',
-              marginBottom: '14px',
-              letterSpacing: '0.02em',
-            }}
-          >
-            Next Steps
+      {/* ── Right Side Panel ───────────────────────────────────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        {/* Image preview */}
+        <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(6,13,27,0.7)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#00e5ff', fontWeight: 600, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <ImageIcon size={12} /><span>INPUT IMAGE</span>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {[
-              { title: 'Ask follow-up questions', desc: 'Drill down into specific areas' },
-              { title: 'Highlight objects', desc: 'E.g., buildings, roads, water' },
-              { title: 'Compare with another image', desc: 'Analyze changes over time', isAction: true },
-              { title: 'Generate a report', desc: 'Get a detailed analysis', isReport: true },
-            ].map((step, idx) => (
-              <div
-                key={idx}
-                onClick={() => {
-                  if (step.isAction) onRunFollowUp('What changed between these two satellite images?', 'change');
-                  if (step.isReport) onGenerateReport();
-                }}
-                style={{
-                  cursor: 'pointer',
-                  padding: '6px 8px',
-                  borderRadius: '6px',
-                  transition: 'background 0.2s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0, 229, 255, 0.06)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-              >
-                <div style={{ fontSize: '0.825rem', fontWeight: 600, color: '#f8fafc', marginBottom: '2px' }}>
-                  {step.title}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  {step.desc}
-                </div>
-              </div>
-            ))}
+          <div style={{ borderRadius: '8px', overflow: 'hidden', background: '#020617', position: 'relative' }}>
+            <img src={userImage} alt="Input" style={{ width: '100%', objectFit: 'contain', maxHeight: '180px' }} />
+            <button onClick={() => onOpenLightbox(userImage, 'Input Image')} style={{ position: 'absolute', bottom: '6px', right: '6px', width: '26px', height: '26px', borderRadius: '4px', background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <Maximize2 size={11} />
+            </button>
           </div>
         </div>
 
-        {/* 2. Download & Share */}
-        <div
-          style={{
-            padding: '20px',
-            borderRadius: '14px',
-            background: 'rgba(6, 13, 27, 0.7)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              color: '#ffffff',
-              marginBottom: '14px',
-              letterSpacing: '0.02em',
-            }}
-          >
-            Download & Share
-          </div>
-
+        {/* Actions */}
+        <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(6,13,27,0.7)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#ffffff', marginBottom: '12px' }}>Actions</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
-              onClick={() => onOpenLightbox(userImage, 'Satellite Scene Image')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#e2e8f0',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
+              onClick={() => executeAnalysis()}
+              style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 12px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(0,229,255,0.12), rgba(2,132,199,0.2))', border: '1px solid rgba(0,229,255,0.4)', color: '#ffffff', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
             >
-              <Download size={14} color="var(--accent-cyan)" />
-              <span>Download Image</span>
+              <RotateCw size={14} color="#00e5ff" /><span>Re-run Visual Analysis</span>
             </button>
-
-            <button
-              onClick={onGenerateReport}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#e2e8f0',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <FileText size={14} color="var(--accent-cyan)" />
-              <span>Download Report</span>
-            </button>
-
             <button
               onClick={onShare}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#e2e8f0',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#e2e8f0', fontSize: '0.8rem', cursor: 'pointer' }}
             >
-              <Share2 size={14} color="var(--accent-cyan)" />
-              <span>Share Analysis</span>
+              <Share2 size={14} color="var(--accent-cyan)" /><span>Share</span>
             </button>
           </div>
         </div>
 
-        {/* 3. Related Queries */}
-        <div
-          style={{
-            padding: '20px',
-            borderRadius: '14px',
-            background: 'rgba(6, 13, 27, 0.7)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              color: '#ffffff',
-              marginBottom: '14px',
-              letterSpacing: '0.02em',
-            }}
-          >
-            Related Queries
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {relatedQueries.map((rq, idx) => (
-              <div
-                key={idx}
-                onClick={() => {
-                  const isChange = rq.includes('change');
-                  onRunFollowUp(rq, isChange ? 'change' : 'single');
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '8px',
-                  padding: '6px 8px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#ffffff';
-                  e.currentTarget.style.background = 'rgba(0, 229, 255, 0.08)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                  e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ color: 'var(--accent-cyan)' }}>☑</span>
-                  <span>{rq}</span>
-                </div>
-                <ArrowRight size={13} color="var(--accent-cyan)" />
+        {/* Stats (Case B only) */}
+        {!isLoading && isCaseBResult && (result as FlorenceCaseBResult).area_percentage > 0 && (
+          <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(6,13,27,0.7)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#00e5ff', fontWeight: 600, marginBottom: '12px' }}>SEGMENTATION STATS</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <span>Target</span>
+                <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{(result as FlorenceCaseBResult).target}</span>
               </div>
-            ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <span>Area Coverage</span>
+                <span style={{ color: '#00e5ff', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{(result as FlorenceCaseBResult).area_percentage.toFixed(1)}%</span>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <style>{`
         @media (max-width: 1080px) {
-          .single-result-layout {
-            grid-template-columns: 1fr !important;
-          }
+          .single-result-layout { grid-template-columns: 1fr !important; }
         }
-        @media (max-width: 768px) {
-          .result-two-col {
-            grid-template-columns: 1fr !important;
-          }
+        @media (max-width: 680px) {
+          .seg-result-grid { grid-template-columns: 1fr !important; }
         }
+        .spin { animation: orbitSpin 1.2s linear infinite; }
+        @keyframes orbitSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
