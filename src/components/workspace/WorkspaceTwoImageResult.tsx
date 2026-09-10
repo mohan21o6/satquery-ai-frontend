@@ -7,13 +7,11 @@ import {
   Share2,
   ArrowRight,
   Send,
-  Sliders,
   Image as ImageIcon,
   RotateCw,
   Sparkles,
   Loader2,
   Cpu,
-  Layers,
   Info,
 } from 'lucide-react';
 

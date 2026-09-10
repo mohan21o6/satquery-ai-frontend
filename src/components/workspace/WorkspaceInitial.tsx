@@ -3,7 +3,6 @@ import {
   Sparkles,
   Image as ImageIcon,
   TrendingUp,
-  MapPin,
   Layers,
   UploadCloud,
   Send,
@@ -914,7 +913,7 @@ export const WorkspaceInitial: React.FC<WorkspaceInitialProps> = ({ onExecuteQue
           title="Reset Inputs"
           style={{
             width: '32px',
-            height: '32px',         height: '32px',
+            height: '32px',
             borderRadius: '50%',
             background: 'rgba(255, 255, 255, 0.04)',
             border: '1px solid rgba(255, 255, 255, 0.1)',

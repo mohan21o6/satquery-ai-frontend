@@ -80,7 +80,6 @@ const DEFAULT_CLASSES = [
 export const WorkspaceSarFusionResult: React.FC<WorkspaceSarFusionResultProps> = ({
   userQuery,
   images,
-  currentUser,
   onRunFollowUp,
   onOpenLightbox,
   onGenerateReport,
@@ -328,7 +327,7 @@ export const WorkspaceSarFusionResult: React.FC<WorkspaceSarFusionResultProps> =
               {isLoadingApi ? (
                 <>
                   <Loader2 size={12} className="spin" />
-                  <span>INFERRING...</span>
+                  <span>{apiStatusText.toUpperCase()}</span>
                 </>
               ) : apiData?.checkpoint_loaded ? (
                 <>

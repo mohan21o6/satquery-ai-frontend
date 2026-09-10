@@ -146,9 +146,9 @@ export const TryModal: React.FC<TryModalProps> = ({ isOpen, onClose }) => {
                   borderRadius: 'var(--radius-full)',
                   fontSize: '12px',
                   cursor: 'pointer',
-                  background: 'rgba(0, 229, 255, 0.2)',
-                  border: '1px solid #00e5ff',
-                  color: '#00e5ff',
+                  background: selectedModel === m.id ? 'rgba(0, 229, 255, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                  border: selectedModel === m.id ? '1px solid #00e5ff' : '1px solid rgba(255, 255, 255, 0.08)',
+                  color: selectedModel === m.id ? '#00e5ff' : 'var(--text-secondary)',
                 }}
               >
                 {m.label}
